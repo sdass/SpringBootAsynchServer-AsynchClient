@@ -1,0 +1,61 @@
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableAsync;
+
+@SpringBootApplication
+@EnableAsync //must needed to work method with @Asynch
+public class SpringAsynch2Application {
+	static Logger log = LoggerFactory.getLogger(SpringAsynch2Application.class);
+	public static void main(String[] args) {
+		log.info("App begings . . .");
+		SpringApplication.run(SpringAsynch2Application.class, args);
+	}
+}
+//------------------------------------------------------
+@RestController
+public class HeloController {
+	Logger log = LoggerFactory.getLogger(HeloController.class);
+	@Autowired HelloService hservice;
+	@Async //must need configuration @EnableAsync
+	@RequestMapping("/asynchFutureHello")
+	public CompletableFuture<String> sayAsynchFutureHelo(){
+		log.info("/asynchFutureHello hits 2");
+		CompletableFuture<String> resp = hservice.sayHelloWithFuture();
+		log.info("1");
+		log.info("2");
+		return resp;
+	}
+}
+//-------------------------------------
+@Service
+public class HelloService {
+	Logger log = LoggerFactory.getLogger(HeloController.class);
+	@Async
+	CompletableFuture<String> sayHelloWithFuture() {
+		log.info("01 HelloService Future . . . called");
+		try {
+			Thread.sleep(3000);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+		CompletableFuture<String> completedFuture = CompletableFuture.completedFuture("Hello web in Future asynch");
+
+		log.info("02 HelloService Future . . . returning");
+		return completedFuture;
+	}
+//invoked as http://localhost:8080/asynchFutureHello
+see log carefully to see asynch behavior (timestamp proof)
+-----------------------------------------
+task-5] HeloController   : /asynchFutureHello hits 2
+task-6] HelloService     : 01 HelloService Future . . . called
+task-5] HeloController   : 1
+task-5] HeloController   : 2
+<timestamp delay only here> <task-6 new thread for service calls>
+task-6] HelloService     : 02 HelloService Future . . . returning
+---------------------------------------------------------
+After disbling Asynch //@EnableAsync. log [block call single thread(no task)]
+exec-3]  HeloController   : /asynchFutureHello hits 2
+exec-3]  HelloService     : 01 HelloService Future . . . called
+<delay here>
+exec-3]  HelloService     : 02 HelloService Future . . . returning
+exec-3]  HeloController   : 1
+exec-3]  HeloController   : 2

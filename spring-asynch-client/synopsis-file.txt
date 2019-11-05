@@ -1,0 +1,52 @@
+import org.springframework.web.client.AsyncRestTemplate;
+import org.springframework.web.context.request.async.DeferredResult;
+@RestController
+public class HelloClientController {
+	private static final String BASE_URL = "http://localhost:8080/";
+	private Logger log = LoggerFactory.getLogger(HelloClientController.class);
+	@Autowired AsyncRestTemplate asyncRestTemplate;
+	@RequestMapping("/asynchgetfuture")
+	public DeferredResult<String> consumeAsynchReal() throws InterruptedException, ExecutionException{
+		log.info("Entered /asynchgetfuture");
+		String sUrl = new StringBuilder(BASE_URL).append("asynchFutureHello").toString();
+		log.info(sUrl);
+		//4 steps prepare before sending calling
+		//String rcvdResult = ""; from anonymous class NO access !effectively final
+		//1 declare result container. conform effectively final
+		DeferredResult<String> deferedResult = new DeferredResult<String>();
+		//2 regular call setting input output
+		ListenableFuture<ResponseEntity<String>> futureResponse = asyncRestTemplate.getForEntity(sUrl, String.class);
+		//3 success-error handler
+		ListenableFutureCallback<ResponseEntity<String>> listenAbleFutureCallback = new ListenableFutureCallback<ResponseEntity<String>>() {
+			@Override
+			public void onSuccess(ResponseEntity<String> result) {
+				log.info("-------- success handler -----");
+				 String s = result.getBody();
+				 s = s + " callback-success";
+				 deferedResult.setResult(s);
+				 log.info("Inside success handler -- >>>" + deferedResult.getResult());
+			}
+			@Override
+			public void onFailure(Throwable ex) {
+				log.info("-------- failure handler -----");
+				ex.printStackTrace();
+				deferedResult.setErrorResult(ex.getMessage());
+			}
+		};
+		//4. hook the handler
+		futureResponse.addCallback(listenAbleFutureCallback);
+
+		log.info("too early like ajax call -- >>>" + deferedResult.getResult());
+		log.info("Can do other processing... callBackmethods(success|failure) receives result");
+		return deferedResult;
+	}
+}
+call invoked in chrome: http://localhost:7979/asynchgetfuture
+output displayed: Hello web in Future asynch callback-success
+//---------
+12:55:18 exec-8] Entered /asynchgetfuture
+12:55:18 exec-8] http://localhost:8080/asynchFutureHello
+12:55:18 exec-8] too early like ajax call -- >>>null
+12:55:18 exec-8] Can do other processing... callBackmethods(success|failure) receives result
+12:55:22 cTaskExecutor-3]  -------- success handler -----
+12:55:22 cTaskExecutor-3] Inside success handler -- >>>Hello web in Future asynch callback-success
